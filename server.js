@@ -8,7 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Load environment variables
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URL = process.env.REDIRECT_URL;
@@ -30,7 +29,6 @@ app.get("/auth", async (req, res) => {
         }),
       }
     );
-
     const data = await response.json();
     res.json(data);
   } catch (err) {
@@ -40,11 +38,11 @@ app.get("/auth", async (req, res) => {
 });
 
 // ------------------- PAYMENT INIT API -------------------
-app.post("/create-payment", async (req, res) => {
+app.post("/pay", async (req, res) => {
   try {
     const { merchantOrderId, amount } = req.body;
 
-    // Get a fresh access token first
+    // Get access token
     const tokenResponse = await fetch(
       "https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token",
       {
@@ -73,11 +71,11 @@ app.post("/create-payment", async (req, res) => {
         },
         body: JSON.stringify({
           merchantOrderId: merchantOrderId || "TX" + Date.now(),
-          amount: amount || 1000, // amount in paisa (e.g., 1000 = ₹10)
+          amount: amount || 1000, // paisa
           expireAfter: 1200,
           paymentFlow: {
             type: "PG_CHECKOUT",
-            message: "Payment message used for collect requests",
+            message: "Payment for admission form",
             merchantUrls: {
               redirectUrl: REDIRECT_URL,
             },
@@ -87,7 +85,11 @@ app.post("/create-payment", async (req, res) => {
     );
 
     const payData = await payResponse.json();
-    res.json(payData);
+    // Return checkout URL
+    res.json({
+      success: true,
+      phonepePaymentUrl: payData.checkoutUrl || payData.paymentLink || null,
+    });
   } catch (err) {
     console.error("Error creating payment:", err);
     res.status(500).json({ error: "Payment creation failed" });
